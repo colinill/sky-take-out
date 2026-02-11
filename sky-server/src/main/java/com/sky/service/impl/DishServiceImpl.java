@@ -36,6 +36,8 @@ public class DishServiceImpl implements DishService {
     private DishFlavorMapper dishFlavorMapper;
     @Autowired
     private SetmealDishMapper setmealDishMapper;
+    @Autowired
+    private SetmealMapper SetmealMapper;
 
     /**
      * 新增菜品和口味
@@ -143,6 +145,37 @@ public class DishServiceImpl implements DishService {
 
             //批量插入口味数据
             dishFlavorMapper.insertBatch(flavors);
+        }
+    }
+
+    /**
+     * 菜品起售停售
+     *
+     * @param status
+     * @param id
+     */
+    @Transactional
+    public void startOrStop(Integer status, Long id) {
+        Dish dish = Dish.builder()
+                .id(id)
+                .status(status)
+                .build();
+        dishMapper.update(dish);
+
+        if (status == StatusConstant.DISABLE) {
+            // 如果是停售操作，还需要将包含当前菜品的套餐也停售
+            List<Long> dishIds = new ArrayList<>();
+            dishIds.add(id);
+            List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(dishIds);
+            if (setmealIds != null && setmealIds.size() > 0) {
+                for (Long setmealId : setmealIds) {
+                    Setmeal setmeal = Setmeal.builder()
+                            .id(setmealId)
+                            .status(StatusConstant.DISABLE)
+                            .build();
+                    SetmealMapper.update(setmeal);
+                }
+            }
         }
     }
 }
