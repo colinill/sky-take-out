@@ -9,12 +9,13 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.cache.CacheProperties;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.util.List;
 
 @RestController("userSetmealController")
@@ -35,37 +36,32 @@ public class SetmealController {
      */
     @GetMapping("/list")
     @ApiOperation("根据分类id查询套餐")
+    @Cacheable(cacheNames = "setmealCache",key = "#categoryId")
     public Result<List<Setmeal>> list(Long categoryId) {
+        log.info("使用springCache查询套餐");
         Setmeal setmeal = new Setmeal();
         setmeal.setCategoryId(categoryId);
         setmeal.setStatus(StatusConstant.ENABLE);
 
-        //查询redis中是否存在菜品数据
-        String key = "dish_"+categoryId;
-        List<Setmeal> list  =  (List<Setmeal>) redisTemplate.opsForValue().get(key);
-
-        //如果redis中有数据，那么直接返回
-        if (list !=null && list.size() > 0){
-            log.info("从redis中获取套餐数据");
-            return Result.success(list);
-        }
-
-        //如果没有数据，就从mysql中查数据，然后插入redis
-        list = setmealService.list(setmeal);
-        redisTemplate.opsForValue().set(key,list);
+        //没有在从数据库中查询然后添加到redis中
+        List<Setmeal>list = setmealService.list(setmeal);
         return Result.success(list);
+
     }
 
     /**
      * 根据套餐id查询包含的菜品列表
-     *
      * @param id
      * @return
      */
     @GetMapping("/dish/{id}")
     @ApiOperation("根据套餐id查询包含的菜品列表")
+    @Cacheable(cacheNames = "setmealCache",key = "#id")
     public Result<List<DishItemVO>> dishList(@PathVariable("id") Long id) {
+        //如果已经在缓存中查询了,就不会执行此方法,包括log日志
+        log.info("使用springCache 在redis中查询菜品列表");
         List<DishItemVO> list = setmealService.getDishItemById(id);
+        System.out.println(list);
         return Result.success(list);
     }
 }
