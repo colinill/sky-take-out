@@ -2,8 +2,10 @@ package com.sky.service.impl;
 
 import com.sky.entity.Orders;
 import com.sky.mapper.OrderMapper;
+import com.sky.mapper.UserMapper;
 import com.sky.service.ReportService;
 import com.sky.vo.TurnoverReportVO;
+import com.sky.vo.UserReportVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,8 @@ import java.util.Map;
 public class ReportServiceImpl implements ReportService {
     @Autowired
     private OrderMapper orderMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     /**
      * 统计指定时间区间内的营业额数据
@@ -63,4 +67,55 @@ public class ReportServiceImpl implements ReportService {
                 .build();
     }
 
+    /**
+     * 统计指定时间区间内的用户数量
+     * @param begin
+     * @param end
+     * @return
+     */
+    public UserReportVO getUserStatistics(LocalDate begin, LocalDate end) {
+        // 计算从begin到end之间的所有日期
+        List<LocalDate> dateList = new ArrayList<>();
+        dateList.add(begin);
+
+        while (!begin.equals(end)){
+            begin = begin.plusDays(1);//日期计算，获得指定日期后1天的日期
+            dateList.add(begin);
+        }
+
+        //存放每天总用户数量
+        List<Integer> totalUserList = new ArrayList();
+        //存放每天新增用户数量
+        List<Integer> newUserList = new ArrayList();
+
+        for (LocalDate date : dateList) {
+            //每天的开始和结束时间
+            LocalDateTime beginTime = LocalDateTime.of(date, LocalTime.MIN);
+            LocalDateTime endTime = LocalDateTime.of(date, LocalTime.MAX);
+
+            Map map = new HashMap();
+
+            // 总用户数量
+            map.put("endTime", endTime);
+            Integer totalUserCount = userMapper.countByMap(map);
+
+            // 当天新增用户数量
+            map.put("beginTime", beginTime);
+            Integer newUserCount = userMapper.countByMap(map);
+
+            // 判断每日用户量是否为空，如果为空说明没有则返回0
+            totalUserCount = totalUserCount == null ? 0 : totalUserCount;
+            newUserCount = newUserCount == null ? 0 : newUserCount;
+
+            totalUserList.add(totalUserCount);
+            newUserList.add(newUserCount);
+        }
+
+        // 返回封装VO对象
+        return UserReportVO.builder()
+                .dateList(StringUtils.join(dateList, ","))
+                .totalUserList(StringUtils.join(totalUserList,","))
+                .newUserList(StringUtils.join(newUserList,","))
+                .build();
+    }
 }
